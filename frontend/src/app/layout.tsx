@@ -1,6 +1,7 @@
+// app/layout.tsx
+import "./globals.css";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,15 +20,39 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`
+          ${geistSans.variable} ${geistMono.variable} antialiased
+          relative min-h-screen flex items-center justify-center
+          bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900
+        `}
       >
-        {children}
+        {/* 1) ultra-blurred gradient “glow” behind everything */}
+        <div
+          className="
+            absolute inset-0
+            bg-gradient-to-r from-green-500 to-blue-500
+            opacity-30 filter blur-3xl
+          "
+        />
+
+        {/* 2) frosted-glass container for your pages */}
+        <div
+          className="
+            relative z-10 w-full max-w-4xl
+            bg-gray-800 bg-opacity-50
+            backdrop-blur-lg
+            rounded-2xl shadow-2xl
+            overflow-hidden
+          "
+        >
+          {children}
+        </div>
       </body>
     </html>
   );

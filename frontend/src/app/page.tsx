@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export default function Chat() {
   const [input, setInput] = useState("");
@@ -51,7 +53,7 @@ export default function Chat() {
   const handleSend = async () => {
     if (!input.trim()) return;
     const messageText = input.trim();
-    setInput(""); // Clear the input box
+    setInput("");
     await sendMessageToAgent(messageText);
   };
 
@@ -66,29 +68,20 @@ export default function Chat() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = []; // Reset audio chunks
+      audioChunksRef.current = [];
 
       mediaRecorder.onstart = () => {
         setIsListening(true);
-        console.log("Recording started...");
       };
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = async () => {
         setIsListening(false);
-        console.log("Recording stopped.");
-
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-
-        if (audioBlob.size === 0) {
-          console.warn("Empty audio blob.");
-          return;
-        }
+        if (audioBlob.size === 0) return;
 
         const arrayBuffer = await audioBlob.arrayBuffer();
         const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
@@ -101,18 +94,9 @@ export default function Chat() {
 
         try {
           setIsProcessing(true);
-          const res = await fetch("http://localhost:8000/speech-to-text", {
-            method: "POST",
-            body: formData,
-          });
-
+          const res = await fetch("http://localhost:8000/speech-to-text", { method: "POST", body: formData });
           const data = await res.json();
-          if (res.ok) {
-            console.log("Transcription received:", data.text);
-            await sendMessageToAgent(data.text || "");
-          } else {
-            console.error("Speech-to-text error:", data.error);
-          }
+          if (res.ok) await sendMessageToAgent(data.text || "");
         } catch (error) {
           console.error("Error in speech-to-text:", error);
         } finally {
@@ -127,15 +111,13 @@ export default function Chat() {
   };
 
   const encodeWAV = (samples) => {
-    const sampleRate = 16000; // Azure Speech-to-Text requires 16kHz
-    const numChannels = 1; // Mono
+    const sampleRate = 16000;
+    const numChannels = 1;
     const buffer = new ArrayBuffer(44 + samples.length * 2);
     const view = new DataView(buffer);
 
     const writeString = (view, offset, string) => {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
+      for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
     };
 
     writeString(view, 0, "RIFF");
@@ -154,8 +136,8 @@ export default function Chat() {
 
     let offset = 44;
     for (let i = 0; i < samples.length; i++, offset += 2) {
-      const sample = Math.max(-1, Math.min(1, samples[i]));
-      view.setInt16(offset, sample * 0x7fff, true);
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s * 0x7fff, true);
     }
 
     return new Blob([view], { type: "audio/wav" });
@@ -174,16 +156,16 @@ export default function Chat() {
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.align === "right" ? "justify-end" : "justify-start"}`}>
             <div className="flex items-start gap-2">
-              {msg.align === "left" && (
-                <img src="/hr-agent-avatar.png" alt="Avatar" className="w-10 h-10 rounded-full" />
-              )}
-              <div
-                className={`p-4 rounded-lg ${
-                  msg.align === "right" ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200"
-                }`}
-              >
-                <p className="text-sm">{msg.text}</p>
-                <span className="text-xs text-gray-400">{msg.timestamp}</span>
+              {msg.align === "left" && <img src="/hr-agent-avatar.png" alt="Avatar" className="w-10 h-10 rounded-full" />}
+              <div className={`p-4 rounded-lg ${msg.align === "right" ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200"}`}>
+                {msg.user === "HR Agent" ? (
+                  <div className="text-sm whitespace-pre-wrap">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                )}
+                <span className="text-xs text-gray-400 block mt-2">{msg.timestamp}</span>
               </div>
             </div>
           </div>
